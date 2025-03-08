@@ -1,10 +1,6 @@
 import pygame
 
 
-pygame.init()
-pygame.font.init()
-
-
 class Utilities:
     def __init__(self) -> None:
         self.font = pygame.font.SysFont("Arial", 30)
@@ -76,8 +72,57 @@ class Utilities:
 
         self.render_button_text(button_rect, text, surface)
 
+    def get_drink_button_pressed(
+        self, relative_mouse_position: tuple[float, float]
+    ) -> int:
+        click_location = [0, 0]
+        click_location[0] = relative_mouse_position[0] - self.HORIZONTAL_OFFSET
+        click_location[1] = relative_mouse_position[1] - self.VERTICAL_OFFSET
+
+        button_total_width = self.HORIZONTAL_BUTTON_SPACING + self.BUTTON_WIDTH
+        horizontal_index = -1
+        while click_location[0] > 0:
+
+            # check if click is in the space between buttons
+            if (
+                click_location[0] > self.BUTTON_WIDTH
+                and click_location[0] < button_total_width
+            ):
+                horizontal_index = -1
+            else:
+                horizontal_index += 1
+
+            click_location[0] -= button_total_width
+
+        button_total_height = self.VERTICAL_BUTTON_SPACING + self.BUTTON_HEIGHT
+        vertical_index = -1
+        while click_location[1] > 0:
+
+            # check if click is in the space between buttons
+            if (
+                click_location[1] > self.BUTTON_HEIGHT
+                and click_location[1] < button_total_height
+            ):
+                vertical_index = -1
+            else:
+                vertical_index += 1
+
+            click_location[1] -= button_total_height
+
+        if vertical_index == -1 or horizontal_index == -1:
+            return -1
+
+        button_index = self.BUTTONS_PER_ROW * vertical_index + horizontal_index
+        if button_index >= self.BUTTONS_PER_ROW * self.BUTTON_ROWS:
+            return -1
+
+        return button_index
+
 
 def main() -> None:
+
+    pygame.init()
+    pygame.font.init()
 
     DRINK_NAMES = ["Lemon Tea", "Chocolate", "Coffee"]
 
@@ -95,8 +140,16 @@ def main() -> None:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                pass
+                position = pygame.mouse.get_pos()
+                relative_position = (
+                    position[0] / screen.get_size()[0],
+                    position[1] / screen.get_size()[1],
+                )
+                button_index = utilities.get_drink_button_pressed(relative_position)
+                if button_index >= 0 and button_index < len(DRINK_NAMES):
+                    print(DRINK_NAMES[button_index])
 
         screen.fill(BACKGROUND_COLOUR)
 
