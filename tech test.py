@@ -1,14 +1,33 @@
 import pygame
+from math import pi
 
 
 class Utilities:
-    def __init__(self) -> None:
+    def __init__(self, max_fps: int) -> None:
+        # holding most constants and variable in the self
+        # this is to stop having to passthrough/global the variables
+        # this also makes it earier to change constants
         self.font = pygame.font.SysFont("Arial", 30)
         self.TEXT_COLOUR = (255, 255, 255)
 
+        self.MACHINE_COLOUR = (155, 155, 155)
+        self.WINDOW_COLOUR = (200, 200, 200)
+        self.MUG_COLOUR = (50, 100, 200)
+        self.SCREEN_COLOUR = (100, 100, 100)
+
+        self.WATER_COLOUR = (150, 200, 255)
+        self.BOILING_WATER_COLOUR = (200, 255, 255)
+        self.CHOCOLATE_COLOUR = (100, 80, 50)
+        self.TEA_COLOUR = (120, 100, 70)
+        self.LEMON_TEA_COLOUR = (160, 140, 70)
+        self.COFFEE_COLOUR = self.TEA_COLOUR
+        self.MILKY_COFFEE_COLOUR = (160, 140, 110)
+
+        self.FILL_TIME = 2.5 * max_fps
+
         self.BUTTONS_PER_ROW = 2
         self.BUTTON_ROWS = 4
-        self.BUTTON_COLOUR = (100, 100, 100)
+        self.BUTTON_COLOUR = (0, 100, 200)
         self.BUTTON_BORDER_RADIUS = 10
 
         # as a fraction of the screen to allow for resizing
@@ -19,7 +38,10 @@ class Utilities:
         self.HORIZONTAL_OFFSET = self.HORIZONTAL_BUTTON_SPACING
         self.VERTICAL_OFFSET = 1 / 4
 
-    def render_button_text(self, rect: pygame.Rect, text: str, surface: pygame.Surface):
+        self.drink = ""
+        self.animation_frame = 0
+
+    def render_text(self, rect: pygame.Rect, text: str, surface: pygame.Surface):
 
         words = [word for word in text.split(" ")]
         space = self.font.size(" ")[0]
@@ -70,7 +92,7 @@ class Utilities:
             border_radius=self.BUTTON_BORDER_RADIUS,
         )
 
-        self.render_button_text(button_rect, text, surface)
+        self.render_text(button_rect, text, surface)
 
     def get_drink_button_pressed(
         self, relative_mouse_position: tuple[float, float]
@@ -113,10 +135,318 @@ class Utilities:
             return -1
 
         button_index = self.BUTTONS_PER_ROW * vertical_index + horizontal_index
-        if button_index >= self.BUTTONS_PER_ROW * self.BUTTON_ROWS:
+        if (
+            button_index >= self.BUTTONS_PER_ROW * self.BUTTON_ROWS
+            or horizontal_index >= self.BUTTONS_PER_ROW
+        ):
             return -1
 
         return button_index
+
+    def get_machine_padding(self, surface: pygame.Surface):
+        # makes the machine visual scale to the lower of x/y to keep in bounds and square
+        size = surface.get_size()
+        scale = min(size[0] / 1600, size[1] / 900)
+
+        machine_size = scale * 500
+        horizontal_padding = size[0] * 0.6
+        vertical_padding = size[1] * 0.25
+
+        return machine_size, horizontal_padding, vertical_padding
+
+    def draw_window_liquid(
+        self,
+        surface: pygame.Surface,
+        colour: tuple[int, int, int],
+        fill_amount: float,
+    ):
+
+        machine_size, horizontal_padding, vertical_padding = self.get_machine_padding(
+            surface
+        )
+
+        pygame.draw.rect(
+            surface,
+            colour,
+            pygame.rect.Rect(
+                (
+                    horizontal_padding + machine_size * 0.6,
+                    vertical_padding
+                    + machine_size * 0.35
+                    + max(1 - fill_amount, 0) * machine_size * 0.5,
+                ),
+                (
+                    machine_size * 0.3,
+                    machine_size * 0.5 * fill_amount,
+                ),
+            ),
+        )
+
+    def draw_spout_liquid(
+        self,
+        surface: pygame.Surface,
+        colour: tuple[int, int, int],
+        fill_amount: float,
+    ):
+
+        machine_size, horizontal_padding, vertical_padding = self.get_machine_padding(
+            surface
+        )
+
+        pygame.draw.rect(
+            surface,
+            colour,
+            pygame.rect.Rect(
+                (
+                    horizontal_padding + machine_size * 0.225,
+                    vertical_padding
+                    + machine_size * 0.4
+                    + max(fill_amount * 2 - 1, 0) * machine_size * 0.2,
+                ),
+                (
+                    machine_size * 0.05,
+                    machine_size * 0.2 * (1 - abs(fill_amount * 2 - 1)),
+                ),
+            ),
+        )
+
+    def colour_interpolate(
+        self,
+        colour_1: tuple[int, int, int],
+        colour_2: tuple[int, int, int],
+        distance: float,
+    ):
+        r = colour_1[0] + (colour_2[0] - colour_1[0]) * distance
+        g = colour_1[1] + (colour_2[1] - colour_1[1]) * distance
+        b = colour_1[2] + (colour_2[2] - colour_1[2]) * distance
+
+        return (r, g, b)
+
+    def draw_machine(self, surface: pygame.Surface):
+
+        machine_size, horizontal_padding, vertical_padding = self.get_machine_padding(
+            surface
+        )
+
+        # main body of machine
+        # top arm
+        pygame.draw.rect(
+            surface,
+            self.MACHINE_COLOUR,
+            pygame.rect.Rect(
+                (horizontal_padding, vertical_padding), (machine_size, machine_size / 3)
+            ),
+        )
+        # main body
+        pygame.draw.rect(
+            surface,
+            self.MACHINE_COLOUR,
+            pygame.rect.Rect(
+                (horizontal_padding + machine_size / 2, vertical_padding),
+                (machine_size / 2, machine_size),
+            ),
+        )
+        # bottom platform
+        pygame.draw.rect(
+            surface,
+            self.MACHINE_COLOUR,
+            pygame.rect.Rect(
+                (horizontal_padding, vertical_padding + machine_size * 9 / 10),
+                (machine_size, machine_size / 10),
+            ),
+        )
+        # spout
+        pygame.draw.rect(
+            surface,
+            self.MACHINE_COLOUR,
+            pygame.rect.Rect(
+                (
+                    horizontal_padding + machine_size / 5,
+                    vertical_padding + machine_size / 3,
+                ),
+                (machine_size / 10, machine_size / 10),
+            ),
+        )
+        # mug body
+        pygame.draw.rect(
+            surface,
+            self.MUG_COLOUR,
+            pygame.rect.Rect(
+                (
+                    horizontal_padding + machine_size / 10,
+                    vertical_padding + machine_size * 0.6,
+                ),
+                (machine_size * 0.3, machine_size * 0.3),
+            ),
+        )
+        # mug arm
+        pygame.draw.arc(
+            surface,
+            self.MUG_COLOUR,
+            pygame.rect.Rect(
+                (
+                    horizontal_padding,
+                    vertical_padding + machine_size * 0.65,
+                ),
+                (machine_size * 0.2, machine_size * 0.2),
+            ),
+            pi / 2,
+            pi * 3 / 2,
+            int(machine_size / 50),
+        )
+        # liquid window
+        pygame.draw.rect(
+            surface,
+            self.WINDOW_COLOUR,
+            pygame.rect.Rect(
+                (
+                    horizontal_padding + machine_size * 0.6,
+                    vertical_padding + machine_size * 0.35,
+                ),
+                (machine_size * 0.3, machine_size * 0.5),
+            ),
+        )
+
+        # machine screen
+        screen_rect = pygame.rect.Rect(
+            (
+                horizontal_padding + machine_size * 0.05,
+                vertical_padding + machine_size * 0.05,
+            ),
+            ((machine_size * 0.9, machine_size * 0.25)),
+        )
+        pygame.draw.rect(surface, self.SCREEN_COLOUR, screen_rect)
+
+        # animate the window, screen and spout
+        # if no drink active display a message
+        if self.drink == "":
+            self.render_text(screen_rect, "Please choose a drink :)", surface)
+            return 0
+
+        self.animation_frame += 1
+
+        # fill with water, all drinks need it so placed before selection
+        if self.animation_frame < self.FILL_TIME:
+            # filling with water
+            self.render_text(screen_rect, "Filling with water", surface)
+            self.draw_window_liquid(
+                surface,
+                self.WATER_COLOUR,
+                self.animation_frame / self.FILL_TIME,
+            )
+
+        elif self.animation_frame < self.FILL_TIME * 2:
+            # boiling the water
+            self.render_text(screen_rect, "Boiling water", surface)
+            boiled_amount = self.animation_frame / self.FILL_TIME - 1
+            colour = self.colour_interpolate(
+                self.WATER_COLOUR, self.BOILING_WATER_COLOUR, boiled_amount
+            )
+            self.draw_window_liquid(surface, colour, 1)
+
+        else:
+            match self.drink:
+                case "Chocolate":
+                    if self.animation_frame < self.FILL_TIME * 3:
+                        self.render_text(screen_rect, "Mixing in chocolate", surface)
+                        chocolate_amount = self.animation_frame / self.FILL_TIME - 2
+                        colour = self.colour_interpolate(
+                            self.BOILING_WATER_COLOUR,
+                            self.CHOCOLATE_COLOUR,
+                            chocolate_amount,
+                        )
+                        self.draw_window_liquid(surface, colour, 1)
+                    elif self.animation_frame < self.FILL_TIME * 4:
+                        self.render_text(screen_rect, "Dispensing", surface)
+                        dispensed_amount = self.animation_frame / self.FILL_TIME - 3
+                        window_fill_amount = max(1 - dispensed_amount * 2, 0)
+                        self.draw_window_liquid(
+                            surface, self.CHOCOLATE_COLOUR, window_fill_amount
+                        )
+                        self.draw_spout_liquid(
+                            surface, self.CHOCOLATE_COLOUR, dispensed_amount
+                        )
+                    elif self.animation_frame < self.FILL_TIME * 5:
+                        self.render_text(
+                            screen_rect, "Enjoy your hot chocolate :)", surface
+                        )
+                    else:
+                        self.animation_frame = 0
+                        return 0
+
+                case "Lemon Tea":
+                    if self.animation_frame < self.FILL_TIME * 3:
+                        self.render_text(screen_rect, "Brewing tea", surface)
+                        tea_amount = self.animation_frame / self.FILL_TIME - 2
+                        colour = self.colour_interpolate(
+                            self.BOILING_WATER_COLOUR,
+                            self.TEA_COLOUR,
+                            tea_amount,
+                        )
+                        self.draw_window_liquid(surface, colour, 1)
+                    elif self.animation_frame < self.FILL_TIME * 4:
+                        self.render_text(screen_rect, "Adding lemon", surface)
+                        lemon_amount = self.animation_frame / self.FILL_TIME - 3
+                        colour = self.colour_interpolate(
+                            self.TEA_COLOUR,
+                            self.LEMON_TEA_COLOUR,
+                            lemon_amount,
+                        )
+                        self.draw_window_liquid(surface, colour, 1)
+                    elif self.animation_frame < self.FILL_TIME * 5:
+                        self.render_text(screen_rect, "Dispensing", surface)
+                        dispensed_amount = self.animation_frame / self.FILL_TIME - 4
+                        window_fill_amount = max(1 - dispensed_amount * 2, 0)
+                        self.draw_window_liquid(
+                            surface, self.LEMON_TEA_COLOUR, window_fill_amount
+                        )
+                        self.draw_spout_liquid(
+                            surface, self.LEMON_TEA_COLOUR, dispensed_amount
+                        )
+                    elif self.animation_frame < self.FILL_TIME * 6:
+                        self.render_text(
+                            screen_rect, "Enjoy your lemon tea :)", surface
+                        )
+                    else:
+                        self.animation_frame = 0
+                        return 0
+                case "Coffee":
+                    if self.animation_frame < self.FILL_TIME * 3:
+                        self.render_text(screen_rect, "Brewing coffee", surface)
+                        coffee_amount = self.animation_frame / self.FILL_TIME - 2
+                        colour = self.colour_interpolate(
+                            self.BOILING_WATER_COLOUR,
+                            self.COFFEE_COLOUR,
+                            coffee_amount,
+                        )
+                        self.draw_window_liquid(surface, colour, 1)
+                    elif self.animation_frame < self.FILL_TIME * 4:
+                        self.render_text(screen_rect, "Adding sugar and milk", surface)
+                        milk_amount = self.animation_frame / self.FILL_TIME - 3
+                        colour = self.colour_interpolate(
+                            self.COFFEE_COLOUR,
+                            self.MILKY_COFFEE_COLOUR,
+                            milk_amount,
+                        )
+                        self.draw_window_liquid(surface, colour, 1)
+                    elif self.animation_frame < self.FILL_TIME * 5:
+                        self.render_text(screen_rect, "Dispensing", surface)
+                        dispensed_amount = self.animation_frame / self.FILL_TIME - 4
+                        window_fill_amount = max(1 - dispensed_amount * 2, 0)
+                        self.draw_window_liquid(
+                            surface, self.MILKY_COFFEE_COLOUR, window_fill_amount
+                        )
+                        self.draw_spout_liquid(
+                            surface, self.MILKY_COFFEE_COLOUR, dispensed_amount
+                        )
+                    elif self.animation_frame < self.FILL_TIME * 6:
+                        self.render_text(screen_rect, "Enjoy your coffee :)", surface)
+                    else:
+                        self.animation_frame = 0
+                        return 0
+                case _:
+                    print(f"no drink with name {self.drink} :(")
+        return 1
 
 
 def main() -> None:
@@ -126,14 +456,15 @@ def main() -> None:
 
     DRINK_NAMES = ["Lemon Tea", "Chocolate", "Coffee"]
 
-    WINDOW_SIZE = WIDTH, HEIGHT = 1600, 900
-    BACKGROUND_COLOUR = (55, 0, 55)
+    WINDOW_SIZE = (1600, 900)
+    BACKGROUND_COLOUR = (255, 255, 255)
     MAX_FPS = 60
     screen = pygame.display.set_mode(WINDOW_SIZE, pygame.RESIZABLE)
     pygame.display.set_caption("Hot Drinks Machine")
     clock = pygame.time.Clock()
-    utilities = Utilities()
+    utilities = Utilities(MAX_FPS)
 
+    state = "buttons"
     running = True
     while running:
 
@@ -142,14 +473,20 @@ def main() -> None:
                 running = False
 
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                position = pygame.mouse.get_pos()
-                relative_position = (
-                    position[0] / screen.get_size()[0],
-                    position[1] / screen.get_size()[1],
-                )
-                button_index = utilities.get_drink_button_pressed(relative_position)
-                if button_index >= 0 and button_index < len(DRINK_NAMES):
-                    print(DRINK_NAMES[button_index])
+                if state == "buttons":
+                    position = pygame.mouse.get_pos()
+                    relative_position = (
+                        position[0] / screen.get_size()[0],
+                        position[1] / screen.get_size()[1],
+                    )
+                    button_index = utilities.get_drink_button_pressed(relative_position)
+                    if (
+                        button_index >= 0
+                        and button_index < len(DRINK_NAMES)
+                        and state == "buttons"
+                    ):
+                        utilities.drink = DRINK_NAMES[button_index]
+                        state = "brewing"
 
         screen.fill(BACKGROUND_COLOUR)
 
@@ -160,6 +497,11 @@ def main() -> None:
         while index < utilities.BUTTON_ROWS * utilities.BUTTONS_PER_ROW:
             utilities.draw_button(index, screen)
             index += 1
+
+        brewing_index = utilities.draw_machine(screen)
+        if brewing_index == 0:
+            state = "buttons"
+            utilities.drink = ""
 
         pygame.display.flip()
         clock.tick(MAX_FPS)
