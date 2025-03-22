@@ -41,11 +41,17 @@ class Utilities:
         self.drink = ""
         self.animation_frame = 0
 
-    def render_text(self, rect: pygame.Rect, text: str, surface: pygame.Surface):
+    def render_text(
+        self, text_rect: pygame.Rect, text: str, surface: pygame.Surface
+    ) -> None:
+        """Renders text onto the surface inside the bounds of the Rect.
 
+        Args:
+            text_rect: a rectangle denoting the area the text is allowed in.
+        """
         words = [word for word in text.split(" ")]
         space = self.font.size(" ")[0]
-        max_width = rect.width
+        max_width = text_rect.width
 
         x = self.BUTTON_BORDER_RADIUS
         y = self.BUTTON_BORDER_RADIUS
@@ -55,29 +61,37 @@ class Utilities:
             if x + word_width >= max_width:
                 x = self.BUTTON_BORDER_RADIUS
                 y += word_height
-            surface.blit(word_surface, (rect.topleft[0] + x, rect.topleft[1] + y))
+            surface.blit(
+                word_surface, (text_rect.topleft[0] + x, text_rect.topleft[1] + y)
+            )
             x += word_width + space
 
-        return surface
-
     def draw_button(
-        self, button_number: int, surface: pygame.Surface, text: str = ""
+        self, button_index: int, surface: pygame.Surface, text: str = ""
     ) -> None:
-        # button number indexes from 0 and fills lines before moving to the next
+        """Draws a button at the given index.
+
+        buttons index from 0 and fill horizontally before moving to the next.
+
+        Args:
+            button_index: the index of the button to be drawn
+            surface: the surface to draw the button on
+            text: text to put on the button
+        """
         surface_width = surface.get_width()
         surface_height = surface.get_height()
 
         rect_width = self.BUTTON_WIDTH * surface_width
         rect_height = self.BUTTON_HEIGHT * surface_height
 
-        horizontal_index = button_number % self.BUTTONS_PER_ROW
+        horizontal_index = button_index % self.BUTTONS_PER_ROW
         rect_x = (
             self.HORIZONTAL_OFFSET * surface_width
             + self.HORIZONTAL_BUTTON_SPACING * horizontal_index * surface_width
             + rect_width * horizontal_index
         )
 
-        vertical_index = button_number // self.BUTTONS_PER_ROW
+        vertical_index = button_index // self.BUTTONS_PER_ROW
         rect_y = (
             self.VERTICAL_OFFSET * surface_height
             + self.VERTICAL_BUTTON_SPACING * vertical_index * surface_height
@@ -97,9 +111,20 @@ class Utilities:
     def get_drink_button_pressed(
         self, relative_mouse_position: tuple[float, float]
     ) -> int:
-        click_location = [0, 0]
-        click_location[0] = relative_mouse_position[0] - self.HORIZONTAL_OFFSET
-        click_location[1] = relative_mouse_position[1] - self.VERTICAL_OFFSET
+        """Gets the index of the pressed button
+
+        Args:
+            relative_mouse_position: the position of the mouse as a proportion
+              of the screen from 0-1
+
+        Returns:
+            an int for the index of the pressed button
+            -1 if mouse position outside of any buttons
+        """
+        click_location = [
+            relative_mouse_position[0] - self.HORIZONTAL_OFFSET,
+            relative_mouse_position[1] - self.VERTICAL_OFFSET,
+        ]
 
         button_total_width = self.HORIZONTAL_BUTTON_SPACING + self.BUTTON_WIDTH
         horizontal_index = -1
@@ -143,8 +168,21 @@ class Utilities:
 
         return button_index
 
-    def get_machine_padding(self, surface: pygame.Surface):
+    def get_machine_padding(
+        self, surface: pygame.Surface
+    ) -> tuple[float, float, float]:
+        """gets the flat padding values for the machine sprite
+
+        Args:
+            surface: surface on which the machine is rendered
+
+        Returns:
+            a tuple of the size of the machine, the horizontal padding and the vertical padding
+        """
+
         # makes the machine visual scale to the lower of x/y to keep in bounds and square
+        # calculated here as required to avoid passing though repeatedly
+
         size = surface.get_size()
         scale = min(size[0] / 1600, size[1] / 900)
 
@@ -159,7 +197,7 @@ class Utilities:
         surface: pygame.Surface,
         colour: tuple[int, int, int],
         fill_amount: float,
-    ):
+    ) -> None:
 
         machine_size, horizontal_padding, vertical_padding = self.get_machine_padding(
             surface
@@ -187,8 +225,14 @@ class Utilities:
         surface: pygame.Surface,
         colour: tuple[int, int, int],
         fill_amount: float,
-    ):
+    ) -> None:
+        """draws the liquid as it exits the spout
 
+        Args:
+            surface: surface to be drawn on
+            colour: colour the liquid is drawn in
+            fill_amount: how full the tank of the machine is, from 0-1
+        """
         machine_size, horizontal_padding, vertical_padding = self.get_machine_padding(
             surface
         )
@@ -222,7 +266,9 @@ class Utilities:
 
         return (r, g, b)
 
-    def draw_machine(self, surface: pygame.Surface):
+    def draw_machine(self, surface: pygame.Surface) -> bool:
+
+        # returns if the animation for the drink has finished as a bool
 
         machine_size, horizontal_padding, vertical_padding = self.get_machine_padding(
             surface
@@ -346,7 +392,10 @@ class Utilities:
 
         else:
             match self.drink:
+                # each drink follows the same basic format
                 case "Chocolate":
+                    # each step moves smoothly between colours
+                    # to make it look like it is mixing
                     if self.animation_frame < self.FILL_TIME * 3:
                         self.render_text(screen_rect, "Mixing in chocolate", surface)
                         chocolate_amount = self.animation_frame / self.FILL_TIME - 2
@@ -359,6 +408,10 @@ class Utilities:
                     elif self.animation_frame < self.FILL_TIME * 4:
                         self.render_text(screen_rect, "Dispensing", surface)
                         dispensed_amount = self.animation_frame / self.FILL_TIME - 3
+
+                        # the window fill amount decreses with twice the rate of normal
+                        # this allows for half the time to go to the spout liquid droping
+                        # while the tank is empty
                         window_fill_amount = max(1 - dispensed_amount * 2, 0)
                         self.draw_window_liquid(
                             surface, self.CHOCOLATE_COLOUR, window_fill_amount
@@ -372,7 +425,7 @@ class Utilities:
                         )
                     else:
                         self.animation_frame = 0
-                        return 0
+                        return True
 
                 case "Lemon Tea":
                     if self.animation_frame < self.FILL_TIME * 3:
@@ -409,7 +462,7 @@ class Utilities:
                         )
                     else:
                         self.animation_frame = 0
-                        return 0
+                        return True
                 case "Coffee":
                     if self.animation_frame < self.FILL_TIME * 3:
                         self.render_text(screen_rect, "Brewing coffee", surface)
@@ -443,10 +496,10 @@ class Utilities:
                         self.render_text(screen_rect, "Enjoy your coffee :)", surface)
                     else:
                         self.animation_frame = 0
-                        return 0
+                        return True
                 case _:
                     print(f"no drink with name {self.drink} :(")
-        return 1
+        return False
 
 
 def main() -> None:
@@ -498,8 +551,8 @@ def main() -> None:
             utilities.draw_button(index, screen)
             index += 1
 
-        brewing_index = utilities.draw_machine(screen)
-        if brewing_index == 0:
+        brewing_finished = utilities.draw_machine(screen)
+        if brewing_finished:
             state = "buttons"
             utilities.drink = ""
 
