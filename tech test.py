@@ -259,7 +259,14 @@ class Utilities:
         colour_1: tuple[int, int, int],
         colour_2: tuple[int, int, int],
         distance: float,
-    ):
+    ) -> tuple[int, int, int]:
+        """calculates the linear interpolate of 2 colours
+
+        Args:
+            colour_1: first colour
+            colour_2: second colour
+            distance: how far from colour 1 to colour 2, 0-1
+        """
         r = colour_1[0] + (colour_2[0] - colour_1[0]) * distance
         g = colour_1[1] + (colour_2[1] - colour_1[1]) * distance
         b = colour_1[2] + (colour_2[2] - colour_1[2]) * distance
@@ -267,8 +274,17 @@ class Utilities:
         return (r, g, b)
 
     def draw_machine(self, surface: pygame.Surface) -> bool:
+        """draws the coffee machine
 
-        # returns if the animation for the drink has finished as a bool
+        draws the machine and any liquids
+        alongside an animation for creating drinks
+
+        Args:
+            surface: surface to draw the machine on
+
+        Returns:
+            a bool of if the animation has finished of the drink being made
+        """
 
         machine_size, horizontal_padding, vertical_padding = self.get_machine_padding(
             surface
